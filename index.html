@@ -482,6 +482,19 @@
     outline: 2px solid var(--terracota);
     outline-offset: 1px;
   }
+  .importes-personas-input {
+    font: 500 12.5px 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--paper-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 8px 10px;
+    width: 56px;
+  }
+  .importes-personas-input:focus-visible {
+    outline: 2px solid var(--terracota);
+    outline-offset: 1px;
+  }
   .importes-type-card {
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -505,6 +518,25 @@
     color: var(--ink);
   }
   .importes-grand-total .importes-amount { font-size: 16.5px; color: var(--terracota); }
+  .importes-summary-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 640px;
+    padding: 14px 18px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+  }
+  .importes-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .importes-summary-row .importes-amount { font-size: 16.5px; color: var(--terracota); }
   .importes-chart {
     display: flex;
     flex-direction: column;
@@ -1450,6 +1482,14 @@
           <option value="day">Días</option>
           <option value="type">Tipología</option>
         </select>
+        <label for="importesMoneda">Moneda</label>
+        <select id="importesMoneda">
+          <option value="€">€</option>
+          <option value="$">$</option>
+          <option value="£">£</option>
+        </select>
+        <label for="importesPersonas">Nº personas</label>
+        <input type="number" id="importesPersonas" min="1" placeholder="1" class="importes-personas-input" />
       </div>
       <div id="importesTypeView" style="display:none;"></div>
       <div class="route-start" id="routeStart" style="display:none;">
@@ -1462,6 +1502,7 @@
         <div class="route-end-label">Fin del viaje</div>
       </div>
       <div id="importesSummary" style="display:none;"></div>
+      <div id="itinerarioSummary" style="display:none;"></div>
     </div>
   </main>
 </div>
@@ -35666,6 +35707,29 @@ Ngerulmud|PW|852.7|438.6`;
     return total;
   }
 
+  function computeKmByTransport(dayList) {
+    var totals = {};
+    dayList.forEach(function (d) {
+      var entry = state.days[d.key];
+      var paradas = entry.paradas || [];
+      var prevPoint = null;
+      paradas.forEach(function (p) {
+        var name = (p.ruta || '').trim();
+        if (!name) return;
+        var city = findCity(name);
+        if (!city) { prevPoint = null; return; }
+        var point = unprojectMapXY(city.x, city.y);
+        if (prevPoint) {
+          var km = haversineKm(prevPoint.lat, prevPoint.lon, point.lat, point.lon);
+          var transporte = (p.transporte || '').trim() || 'Sin especificar';
+          totals[transporte] = (totals[transporte] || 0) + km;
+        }
+        prevPoint = point;
+      });
+    });
+    return totals;
+  }
+
   var activeMapPlacement = null;
 
   function armMapPlacement(name, mapBoxEl, btnEl) {
@@ -35950,6 +36014,8 @@ Ngerulmud|PW|852.7|438.6`;
   if (!state.activeTab) state.activeTab = 'completo';
   if (!state.manualCities) state.manualCities = {};
   if (state.kmManualTotal === undefined) state.kmManualTotal = '';
+  if (!state.moneda) state.moneda = '€';
+  if (state.numPersonas === undefined) state.numPersonas = '';
 
   var els = {
     miniGrid: document.getElementById('miniGrid'),
@@ -35986,8 +36052,11 @@ Ngerulmud|PW|852.7|438.6`;
     tabsWrap: document.getElementById('tabsWrap'),
     importesFilters: document.getElementById('importesFilters'),
     importesGroupBy: document.getElementById('importesGroupBy'),
+    importesMoneda: document.getElementById('importesMoneda'),
+    importesPersonas: document.getElementById('importesPersonas'),
     importesTypeView: document.getElementById('importesTypeView'),
     importesSummary: document.getElementById('importesSummary'),
+    itinerarioSummary: document.getElementById('itinerarioSummary'),
     saveTripBtn: document.getElementById('saveTripBtn'),
     shareTripBtn: document.getElementById('shareTripBtn'),
     shareLinkBox: document.getElementById('shareLinkBox'),
@@ -36031,6 +36100,8 @@ Ngerulmud|PW|852.7|438.6`;
   els.destination.value = state.destination;
   els.gatewayCity.value = state.gatewayCity || '';
   els.description.value = state.description || '';
+  els.importesMoneda.value = state.moneda || '€';
+  els.importesPersonas.value = state.numPersonas || '';
 
   els.tripName.addEventListener('input', function () { state.name = els.tripName.value; save(); renderHeader(); });
   els.destination.addEventListener('input', function () { state.destination = els.destination.value; save(); renderHeader(); });
@@ -36196,6 +36267,8 @@ Ngerulmud|PW|852.7|438.6`;
       if (!state.activeTab) state.activeTab = 'completo';
       if (!state.manualCities) state.manualCities = {};
       if (state.kmManualTotal === undefined) state.kmManualTotal = '';
+      if (!state.moneda) state.moneda = '€';
+      if (state.numPersonas === undefined) state.numPersonas = '';
       save();
       els.tripName.value = state.name || '';
       els.startDate.value = state.startDate || '';
@@ -36203,6 +36276,8 @@ Ngerulmud|PW|852.7|438.6`;
       els.destination.value = state.destination || '';
       els.gatewayCity.value = state.gatewayCity || '';
       els.description.value = state.description || '';
+      els.importesMoneda.value = state.moneda || '€';
+      els.importesPersonas.value = state.numPersonas || '';
       renderPhotoBox();
       render();
       showBackupStatus('Viaje cargado ✓');
@@ -36215,6 +36290,8 @@ Ngerulmud|PW|852.7|438.6`;
   populateTripSelect();
 
   els.importesGroupBy.addEventListener('change', function () { render(); });
+  els.importesMoneda.addEventListener('change', function () { state.moneda = els.importesMoneda.value; save(); render(); });
+  els.importesPersonas.addEventListener('input', function () { state.numPersonas = els.importesPersonas.value; save(); render(); });
 
   els.miniMapKm.addEventListener('input', function () { state.kmManualTotal = els.miniMapKm.value; save(); });
 
@@ -36286,6 +36363,8 @@ Ngerulmud|PW|852.7|438.6`;
         if (!state.manualCities) state.manualCities = {};
         if (!state.days) state.days = {};
         if (state.kmManualTotal === undefined) state.kmManualTotal = '';
+      if (!state.moneda) state.moneda = '€';
+      if (state.numPersonas === undefined) state.numPersonas = '';
         render();
       })
       .catch(function () {});
@@ -36432,6 +36511,7 @@ Ngerulmud|PW|852.7|438.6`;
       els.importesTypeView.style.display = '';
       els.importesTypeView.innerHTML = '';
       els.importesTypeView.appendChild(buildImportesByType(dayList));
+      els.importesTypeView.appendChild(buildImportesGrandSummary(dayList));
       return;
     }
     els.route.style.display = '';
@@ -36474,8 +36554,17 @@ Ngerulmud|PW|852.7|438.6`;
       els.importesSummary.style.display = '';
       els.importesSummary.innerHTML = '';
       els.importesSummary.appendChild(buildImportesSummaryByDay(dayList, built.placeColor));
+      els.importesSummary.appendChild(buildImportesGrandSummary(dayList));
     } else {
       els.importesSummary.style.display = 'none';
+    }
+
+    if (state.activeTab === 'itinerario') {
+      els.itinerarioSummary.style.display = '';
+      els.itinerarioSummary.innerHTML = '';
+      els.itinerarioSummary.appendChild(buildItinerarioTransportSummary(dayList));
+    } else {
+      els.itinerarioSummary.style.display = 'none';
     }
   }
 
@@ -36979,7 +37068,123 @@ Ngerulmud|PW|852.7|438.6`;
     return formatted + '€';
   }
 
-  function buildImportesChart(items) {
+  function formatMoneyWithCurrency(n, currency) {
+    var formatted = (n % 1 === 0) ? String(n) : n.toFixed(2);
+    return formatted + (currency || '€');
+  }
+
+  function buildImportesGrandSummary(dayList) {
+    var wrap = document.createElement('div');
+    wrap.className = 'importes-type-card';
+
+    var label = document.createElement('div');
+    label.className = 'day-field-label';
+    label.innerHTML = '<span class="dot dot-importe"></span>Resumen del viaje';
+    wrap.appendChild(label);
+
+    var moneda = state.moneda || '€';
+    var numDays = dayList.length || 1;
+    var numPersonas = parseFloat(state.numPersonas) || 0;
+
+    var totalsByType = {};
+    var grandTotalNum = 0;
+    IMPORTES_TYPES.forEach(function (t) { totalsByType[t.key] = 0; });
+    dayList.forEach(function (d) {
+      var entry = state.days[d.key];
+      getEntryImporteRows(entry).forEach(function (r) {
+        var n = sumAmountsNumeric([r.amount]);
+        totalsByType[r.type] = (totalsByType[r.type] || 0) + n;
+        grandTotalNum += n;
+      });
+    });
+
+    var avgRows = IMPORTES_TYPES.map(function (t) {
+      var avg = totalsByType[t.key] / numDays;
+      return { label: t.label, amount: avg > 0 ? formatMoneyWithCurrency(avg, moneda) : '' };
+    });
+    wrap.appendChild(buildImportesRowsList(avgRows));
+
+    var summaryBox = document.createElement('div');
+    summaryBox.className = 'importes-summary-box';
+
+    var avgRow = document.createElement('div');
+    avgRow.className = 'importes-summary-row';
+    var avgLabel = document.createElement('span');
+    avgLabel.textContent = 'Media al día';
+    var avgAmount = document.createElement('span');
+    avgAmount.className = 'importes-amount';
+    avgAmount.textContent = formatMoneyWithCurrency(grandTotalNum / numDays, moneda);
+    avgRow.appendChild(avgLabel);
+    avgRow.appendChild(avgAmount);
+    summaryBox.appendChild(avgRow);
+
+    if (numPersonas > 0) {
+      var ppRow = document.createElement('div');
+      ppRow.className = 'importes-summary-row';
+      var ppLabel = document.createElement('span');
+      ppLabel.textContent = 'Total por persona (' + numPersonas + ')';
+      var ppAmount = document.createElement('span');
+      ppAmount.className = 'importes-amount';
+      ppAmount.textContent = formatMoneyWithCurrency(grandTotalNum / numPersonas, moneda);
+      ppRow.appendChild(ppLabel);
+      ppRow.appendChild(ppAmount);
+      summaryBox.appendChild(ppRow);
+    }
+
+    wrap.appendChild(summaryBox);
+
+    return wrap;
+  }
+
+  function buildItinerarioTransportSummary(dayList) {
+    var totals = computeKmByTransport(dayList);
+    var keys = Object.keys(totals);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'importes-type-card';
+
+    var label = document.createElement('div');
+    label.className = 'day-field-label';
+    label.innerHTML = '<span class="dot dot-itin"></span>Distancia por tipo de transporte';
+    wrap.appendChild(label);
+
+    if (!keys.length) {
+      var empty = document.createElement('div');
+      empty.className = 'importes-empty';
+      empty.textContent = 'Añade paradas con lugares reconocidos por el mapa para ver este resumen.';
+      wrap.appendChild(empty);
+      return wrap;
+    }
+
+    var palette = ['var(--verde)', 'var(--terracota)', 'var(--ambar)', 'var(--salvia)', 'var(--vino)', 'var(--pizarra)'];
+    var chartItems = keys.map(function (k, i) {
+      return { label: k, amountNum: totals[k], color: palette[i % palette.length] };
+    });
+    chartItems.sort(function (a, b) { return b.amountNum - a.amountNum; });
+
+    var totalKm = keys.reduce(function (sum, k) { return sum + totals[k]; }, 0);
+
+    var summaryBox = document.createElement('div');
+    summaryBox.className = 'importes-summary-box';
+    var totalRow = document.createElement('div');
+    totalRow.className = 'importes-summary-row';
+    var totalLabel = document.createElement('span');
+    totalLabel.textContent = 'Distancia total';
+    var totalAmount = document.createElement('span');
+    totalAmount.className = 'importes-amount';
+    totalAmount.textContent = Math.round(totalKm) + ' km';
+    totalRow.appendChild(totalLabel);
+    totalRow.appendChild(totalAmount);
+    summaryBox.appendChild(totalRow);
+    wrap.appendChild(summaryBox);
+
+    wrap.appendChild(buildImportesChart(chartItems, function (n) { return Math.round(n) + ' km'; }));
+
+    return wrap;
+  }
+
+  function buildImportesChart(items, formatValue) {
+    formatValue = formatValue || formatMoney;
     var wrap = document.createElement('div');
     wrap.className = 'importes-chart';
     var max = Math.max.apply(null, items.map(function (it) { return it.amountNum; }).concat([0.0001]));
@@ -37003,7 +37208,7 @@ Ngerulmud|PW|852.7|438.6`;
 
       var amount = document.createElement('span');
       amount.className = 'importes-chart-amount';
-      amount.textContent = it.amountNum > 0 ? formatMoney(it.amountNum) : '—';
+      amount.textContent = it.amountNum > 0 ? formatValue(it.amountNum) : '—';
       row.appendChild(amount);
 
       wrap.appendChild(row);
@@ -37725,6 +37930,8 @@ Ngerulmud|PW|852.7|438.6`;
           if (!state.manualCities) state.manualCities = {};
           if (!state.days) state.days = {};
           if (state.kmManualTotal === undefined) state.kmManualTotal = '';
+      if (!state.moneda) state.moneda = '€';
+      if (state.numPersonas === undefined) state.numPersonas = '';
         } else {
           state.updatedAt = Date.now();
           fetch('/api/trip?id=' + encodeURIComponent(collabTripId), {
@@ -37742,6 +37949,8 @@ Ngerulmud|PW|852.7|438.6`;
         els.destination.value = state.destination || '';
         els.gatewayCity.value = state.gatewayCity || '';
         els.description.value = state.description || '';
+        els.importesMoneda.value = state.moneda || '€';
+        els.importesPersonas.value = state.numPersonas || '';
         renderPhotoBox();
         render();
         setInterval(collabPoll, 6000);
