@@ -713,11 +713,12 @@
     align-items: center;
     gap: 6px;
   }
-  .tour-legend .lh-hora { width: 108px; flex-shrink: 0; }
+  .tour-legend .lh-hora { width: 88px; flex-shrink: 0; }
   .tour-legend .lh-texto { flex: 1; min-width: 0; }
   .tour-legend .lh-precio { width: 66px; flex-shrink: 0; }
   .tour-legend .lh-spacer { width: 24px; flex-shrink: 0; }
-  .tour-row input[type="text"].tour-hora { width: 108px; flex: none; }
+  .tour-row input[type="text"].tour-hora { width: 88px; flex: none; }
+  .row-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .tour-row input[type="text"].tour-texto { width: auto; flex: 1; min-width: 0; }
   .tour-row input[type="text"].tour-precio { width: 66px; flex: none; }
   .tour-row input {
@@ -1336,6 +1337,12 @@
     <div class="name-row" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly />
       <button type="button" class="save-trip-btn" id="shareLinkCopyBtn">Copiar</button>
+    </div>
+
+    <button type="button" class="new-trip-btn" id="shareNoPricesTripBtn">Compartir viaje (solo lectura, sin importes)</button>
+    <div class="name-row" id="shareNoPricesLinkBox" style="display:none;">
+      <input type="text" id="shareNoPricesLinkInput" readonly />
+      <button type="button" class="save-trip-btn" id="shareNoPricesLinkCopyBtn">Copiar</button>
     </div>
 
     <div class="date-row">
@@ -35983,6 +35990,10 @@ Ngerulmud|PW|852.7|438.6`;
     shareLinkBox: document.getElementById('shareLinkBox'),
     shareLinkInput: document.getElementById('shareLinkInput'),
     shareLinkCopyBtn: document.getElementById('shareLinkCopyBtn'),
+    shareNoPricesTripBtn: document.getElementById('shareNoPricesTripBtn'),
+    shareNoPricesLinkBox: document.getElementById('shareNoPricesLinkBox'),
+    shareNoPricesLinkInput: document.getElementById('shareNoPricesLinkInput'),
+    shareNoPricesLinkCopyBtn: document.getElementById('shareNoPricesLinkCopyBtn'),
     tripSelect: document.getElementById('tripSelect'),
     backupStatus: document.getElementById('backupStatus')
   };
@@ -36108,35 +36119,65 @@ Ngerulmud|PW|852.7|438.6`;
     setTimeout(function () { els.saveTripBtn.classList.remove('saved'); }, 1200);
   });
 
-  function tryCopyText(text) {
+  function tryCopyText(inputEl, text) {
     var ok = false;
     try {
-      els.shareLinkInput.focus();
-      els.shareLinkInput.select();
-      els.shareLinkInput.setSelectionRange(0, text.length);
+      inputEl.focus();
+      inputEl.select();
+      inputEl.setSelectionRange(0, text.length);
       ok = document.execCommand('copy');
     } catch (e) { ok = false; }
     return ok;
   }
 
-  els.shareTripBtn.addEventListener('click', function () {
+  function buildSharePayload(stripPrices) {
     var payload = JSON.parse(JSON.stringify(state));
     payload.photo = null;
     Object.keys(payload.days || {}).forEach(function (k) {
-      (payload.days[k].tours || []).forEach(function (t) { if (t.pdf) t.pdf = ''; });
+      var day = payload.days[k];
+      (day.tours || []).forEach(function (t) {
+        if (t.pdf) t.pdf = '';
+        if (stripPrices) t.precio = '';
+      });
+      if (stripPrices) {
+        (day.paradas || []).forEach(function (p) { p.precio = ''; });
+        (day.comidas || []).forEach(function (c) { c.precio = ''; });
+        (day.extras || []).forEach(function (e) { e.precio = ''; });
+        if (day.alojamiento) day.alojamiento.precio = '';
+      }
     });
+    return payload;
+  }
 
+  function buildShareUrl(stripPrices) {
+    var payload = buildSharePayload(stripPrices);
     var encoded = utf8ToBase64(JSON.stringify(payload));
-    var url = window.location.origin + window.location.pathname + '#viaje=' + encodeURIComponent(encoded);
+    return window.location.origin + window.location.pathname + '#viaje=' + encodeURIComponent(encoded);
+  }
 
+  els.shareTripBtn.addEventListener('click', function () {
+    var url = buildShareUrl(false);
     els.shareLinkInput.value = url;
     els.shareLinkBox.style.display = '';
-    var copied = tryCopyText(url);
+    var copied = tryCopyText(els.shareLinkInput, url);
     showBackupStatus(copied ? 'Enlace copiado ✓ (o cópialo abajo)' : 'Copia el enlace de abajo a mano');
   });
 
+  els.shareNoPricesTripBtn.addEventListener('click', function () {
+    var url = buildShareUrl(true);
+    els.shareNoPricesLinkInput.value = url;
+    els.shareNoPricesLinkBox.style.display = '';
+    var copied = tryCopyText(els.shareNoPricesLinkInput, url);
+    showBackupStatus(copied ? 'Enlace copiado ✓ (o cópialo abajo)' : 'Copia el enlace de abajo a mano');
+  });
+
+  els.shareNoPricesLinkCopyBtn.addEventListener('click', function () {
+    var copied = tryCopyText(els.shareNoPricesLinkInput, els.shareNoPricesLinkInput.value);
+    showBackupStatus(copied ? 'Enlace copiado ✓' : 'No se pudo copiar automáticamente, selecciónalo a mano', !copied);
+  });
+
   els.shareLinkCopyBtn.addEventListener('click', function () {
-    var copied = tryCopyText(els.shareLinkInput.value);
+    var copied = tryCopyText(els.shareLinkInput, els.shareLinkInput.value);
     showBackupStatus(copied ? 'Enlace copiado ✓' : 'No se pudo copiar automáticamente, selecciónalo a mano', !copied);
   });
 
@@ -36635,7 +36676,6 @@ Ngerulmud|PW|852.7|438.6`;
         pdfInput.click();
       }
     });
-    row.appendChild(pdfBtn);
 
     function updatePdfBtn() {
       if (tour.pdf) {
@@ -36649,12 +36689,17 @@ Ngerulmud|PW|852.7|438.6`;
     }
     updatePdfBtn();
 
+    var actions = document.createElement('div');
+    actions.className = 'row-actions';
+    actions.appendChild(pdfBtn);
+    row.appendChild(actions);
+
     var infoBtn = document.createElement('a');
     infoBtn.className = 'row-gmaps-btn';
     infoBtn.target = '_blank';
     infoBtn.rel = 'noopener';
     infoBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor" stroke="none"/></svg>';
-    row.appendChild(infoBtn);
+    actions.appendChild(infoBtn);
 
     function updateInfoBtn() {
       var q = (texto.value || '').trim();
@@ -36683,7 +36728,7 @@ Ngerulmud|PW|852.7|438.6`;
       save();
       render();
     });
-    row.appendChild(remove);
+    actions.appendChild(remove);
 
     return row;
   }
