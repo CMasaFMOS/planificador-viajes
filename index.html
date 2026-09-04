@@ -719,6 +719,8 @@
   .tour-legend .lh-spacer { width: 24px; flex-shrink: 0; }
   .tour-row input[type="text"].tour-hora { width: 88px; flex: none; }
   .row-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .share-btn-row { display: flex; gap: 6px; }
+  .share-btn-row .new-trip-btn { flex: 1; min-width: 0; }
   .tour-row input[type="text"].tour-texto { width: auto; flex: 1; min-width: 0; }
   .tour-row input[type="text"].tour-precio { width: 66px; flex: none; }
   .tour-row input {
@@ -1333,13 +1335,14 @@
       </div>
     </div>
 
-    <button type="button" class="new-trip-btn" id="shareTripBtn">Compartir viaje (solo lectura)</button>
+    <div class="share-btn-row">
+      <button type="button" class="new-trip-btn" id="shareTripBtn" title="Compartir viaje (solo lectura)">Solo lectura</button>
+      <button type="button" class="new-trip-btn" id="shareNoPricesTripBtn" title="Compartir viaje (solo lectura, sin importes)">Sin importes</button>
+    </div>
     <div class="name-row" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly />
       <button type="button" class="save-trip-btn" id="shareLinkCopyBtn">Copiar</button>
     </div>
-
-    <button type="button" class="new-trip-btn" id="shareNoPricesTripBtn">Compartir viaje (solo lectura, sin importes)</button>
     <div class="name-row" id="shareNoPricesLinkBox" style="display:none;">
       <input type="text" id="shareNoPricesLinkInput" readonly />
       <button type="button" class="save-trip-btn" id="shareNoPricesLinkCopyBtn">Copiar</button>
